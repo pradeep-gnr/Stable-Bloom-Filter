@@ -29,7 +29,18 @@ class StableBloomFilter(object):
         """
         Generate Parameters given a FP Rate !!
         """
-
+    def _gen_int_from_string(self,bin_string):
+        """
+        Generate integer value from Binary String 
+        """
+        int_val=0
+        cnt=0
+        for each in bin_string:            
+            if each =='1':
+                int_val+=int(each) * 2**cnt
+            cnt+=1
+        return int_val
+            
     def _check_cell(self,cell_no):
         """
         Check if all bits in a Cell are 0
@@ -42,7 +53,12 @@ class StableBloomFilter(object):
         Recommended Default is '1'
         """
         cell_value = self.bitmap[cell_no:cell_no+d].to01()
-        int_val = map()       
+        int_val = self._gen_int_from_string(cell_value)
+        if int_val>=0:
+            int_val-=1
+            bin_val = bin(int_val)[2:]
+            self.bitmap[cell_no:cell_no+d] = bitarray(bin_val)
+        return True        
         
     def _update_cell(self,cell_no,d):
         """
@@ -65,7 +81,7 @@ class StableBloomFilter(object):
                 cell_list.append(rand_cell)
         return cell_list
 
-    def _handle_data(self,text):
+    def process_element(self,text):
         """
         Handle A New Element Coming from a Stream. The Following Steps are done
         1) Randomly choose 'P' Cells and decrement
@@ -73,16 +89,23 @@ class StableBloomFilter(object):
         hash_buckets =[]
         dup_flag = True
         # Generate hash family functions
-        for each in xrange(self.no_hashes):
-            hash_val = self._gen_hash(each,text)
+        for each_seed in xrange(self.no_hashes):
+            hash_val = self._gen_hash(each_seed,text)
             # Probe each Cell
             dup_flag = dup_flag and self._check_cell(self.hash_val)
             hash_buckets.append(hash_val)  
 
         # Choose 'P' Different Cells !
-        rand_cells = self._choose_random_cells(self.P)       
-            
-        
+        rand_cells = self._choose_random_cells(self.P)
+
+        # Decrement the Random Cells by 1!        
+        self._decrement_random_cells(rand_cells)
+
+        # Set all the Hash Values to Max !!        
+        for each_cell in hash_buckets:
+            self._update_cell(each_cell,self.d)
+
+        return dup_flag        
 
     def _gen_hash(self,seed_no,text):
         """
@@ -94,19 +117,7 @@ class StableBloomFilter(object):
         hash_obj.update(text)
         hash_val = int(bin(int(hash_obj.hexdigest(),16))[2:self.no_bits+2],2)
         return hash_val ^ seed_bits
-
-    def add(self,text):
-        """
-        Add an item to the Stable Bloom Filter !!
-        """
-        for each in xrange(self.no_hashes):
-            cell_no = self._gen_hash(each,text)
-            
-            
-        
     
-
-
 if __name__=="__main__":
     ipdb.set_trace()
     ob = StableBloomFilter(5,24,10,7)
